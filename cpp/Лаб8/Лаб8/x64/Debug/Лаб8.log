@@ -1,0 +1,3 @@
+﻿  Лаб8.cpp
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб8\Лаб8\Лаб8.cpp(48,17): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  Лаб8.vcxproj -> C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб8\x64\Debug\Лаб8.exe
