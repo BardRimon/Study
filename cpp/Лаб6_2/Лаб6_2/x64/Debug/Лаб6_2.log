@@ -1,0 +1,5 @@
+﻿  Лаб6_2.cpp
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб6_2\Лаб6_2\Лаб6_2.cpp(83,16): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб6_2\Лаб6_2\Лаб6_2.cpp(80,6): warning C4101: a: неиспользованная локальная переменная
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб6_2\Лаб6_2\Лаб6_2.cpp(80,9): warning C4101: b: неиспользованная локальная переменная
+  Лаб6_2.vcxproj -> C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб6_2\x64\Debug\Лаб6_2.exe

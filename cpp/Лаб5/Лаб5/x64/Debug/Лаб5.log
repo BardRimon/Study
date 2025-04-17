@@ -1,0 +1,7 @@
+﻿  Лаб5.cpp
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб5\Лаб5\Лаб5.cpp(15,27): warning C4244: =: преобразование "int" в "float", возможна потеря данных
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб5\Лаб5\Лаб5.cpp(29,19): warning C4244: =: преобразование "float" в "int", возможна потеря данных
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб5\Лаб5\Лаб5.cpp(30,27): warning C4244: =: преобразование "float" в "int", возможна потеря данных
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб5\Лаб5\Лаб5.cpp(36,19): warning C4244: =: преобразование "int" в "float", возможна потеря данных
+C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб5\Лаб5\Лаб5.cpp(37,27): warning C4244: =: преобразование "int" в "float", возможна потеря данных
+  Лаб5.vcxproj -> C:\Users\bardr\source\repos\Programming workshop\Лабы_по_cpp\Лаб5\x64\Debug\Лаб5.exe
