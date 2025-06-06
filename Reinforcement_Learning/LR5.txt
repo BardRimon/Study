@@ -1,0 +1,229 @@
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.distributions import Categorical
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle 
+import imageio
+import os
+
+
+
+
+# ------------------ Пользовательская среда GridWorld ------------------
+class GridWorld:
+    def __init__(self, size=4):
+        self.size = size
+        self.state = (0, 0)
+        self.goal = (size - 1, size - 1)  # (x, y)
+        self.action_space = 4  # 0: up, 1: right, 2: down, 3: left
+        self.observation_space = size * size  # flat state space
+
+    def reset(self):
+        self.state = (0, 0)
+        return self._to_flat(self.state)
+
+    def _to_flat(self, pos):
+        x, y = pos
+        return x * self.size + y
+
+    def step(self, action):
+        x, y = self.state
+        if action == 0 and x > 0:
+            x -= 1
+        elif action == 1 and y < self.size - 1:
+            y += 1
+        elif action == 2 and x < self.size - 1:
+            x += 1
+        elif action == 3 and y > 0:
+            y -= 1
+
+        new_state = (x, y)
+        done = new_state == self.goal
+        reward = 1.0 if done else -0.01
+        self.state = new_state
+        return self._to_flat(new_state), reward, done
+
+
+
+
+# ------------------ Функция преобразования индекса в координаты ------------------
+def idx_to_pos(idx, size):
+    return (idx // size, idx % size)
+
+
+# ------------------ Визуализация текущего состояния и сохранение кадра ------------------
+def visualize_and_save_frame(env, state_idx, episode, step, frames_folder="frames"):
+    grid_size = env.size
+    grid = np.zeros((grid_size, grid_size, 3))  # RGB
+
+    x, y = idx_to_pos(state_idx, grid_size)
+    gx, gy = env.goal  # цель как (x, y)
+
+    fig, ax = plt.subplots(figsize=(4, 4))
+    ax.imshow(grid)
+
+    # Рисуем решётку
+    for i in range(grid_size):
+        for j in range(grid_size):
+            rect = Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False, color="black")
+            ax.add_patch(rect)
+
+    # Агент
+    agent_rect = Rectangle((y - 0.4, x - 0.4), 0.8, 0.8, color="blue", label="Agent")
+    ax.add_patch(agent_rect)
+
+    # Цель
+    goal_rect = Rectangle((gy - 0.4, gx - 0.4), 0.8, 0.8, color="green")
+    ax.add_patch(goal_rect)
+
+    ax.set_title(f"Episode {episode} | Step {step}")
+    ax.axis("off")
+
+    # Сохраняем кадр
+    frame_path = os.path.join(frames_folder, f"frame_{step:03d}.png")
+    plt.savefig(frame_path)
+    plt.close(fig)
+
+
+
+# ------------------ Модель A2C ------------------
+class ActorCritic(nn.Module):
+    def __init__(self, num_inputs, num_actions):
+        super(ActorCritic, self).__init__()
+        self.shared = nn.Linear(num_inputs, 64)
+        self.actor = nn.Linear(64, num_actions)
+        self.critic = nn.Linear(64, 1)
+
+    def forward(self, x):
+        x = F.relu(self.shared(x))
+        return self.actor(x), self.critic(x)
+
+
+# ------------------ Гиперпараметры ------------------
+env = GridWorld()
+state_size = env.observation_space
+action_size = env.action_space
+n_episodes = 100
+gamma = 0.99
+lr = 3e-3
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model = ActorCritic(state_size, action_size).to(device)
+optimizer = optim.Adam(model.parameters(), lr=lr)
+
+
+# ------------------ Функция обучения ------------------
+def train():
+    win_history = []
+
+    for episode in range(n_episodes):
+        state = env.reset()
+        total_reward = 0
+        transitions = []
+
+        while True:
+            # One-hot encoding
+            state_tensor = torch.zeros(1, state_size)
+            state_tensor[0, state] = 1.0
+            state_tensor = state_tensor.to(device)
+
+            logits, value = model(state_tensor)
+            policy = Categorical(logits=logits)
+            action = policy.sample()
+
+            next_state, reward, done = env.step(action.item())
+            total_reward += reward
+
+            transitions.append((state_tensor, action, reward, value, policy.log_prob(action)))
+
+            state = next_state
+
+            if done:
+                break
+        # Обучение
+        loss = 0
+        returns = []
+        R = 0
+        for t in reversed(range(len(transitions))):
+            R = transitions[t][2] + gamma * R
+            returns.insert(0, R)
+
+        returns = torch.tensor(returns).to(device)
+        returns = (returns - returns.mean()) / (returns.std() + 1e-8)
+
+        for i, (state_tensor, action, _, value, log_prob) in enumerate(transitions):
+            advantage = returns[i] - value.item()
+            actor_loss = -log_prob * advantage
+            critic_loss = F.mse_loss(value, returns[i].unsqueeze(0))
+            loss += actor_loss + critic_loss
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # Логирование побед
+        won = total_reward > 0.9
+        win_history.append(1 if won else 0)
+
+        print(f"Episode {episode}, Total Reward: {total_reward:.2f}, {'✅ Win' if won else '❌ Lose'}")
+
+    torch.save(model.state_dict(), "a2c_gridworld.pth")
+    print("Модель сохранена.")
+    plot_wins(win_history)
+    save_video_from_agent(model, env)
+
+
+# ------------------ График с победами ------------------
+def plot_wins(wins):
+    wins_smooth = np.convolve(wins, np.ones(10)/10, mode='valid')
+    plt.plot(wins_smooth)
+    plt.title("Win Rate Over Episodes (Smoothed)")
+    plt.xlabel("Episode")
+    plt.ylabel("Win Rate")
+    plt.grid(True)
+    plt.show()
+
+# ------------------ Запись видео с агентом ------------------
+from matplotlib.patches import Rectangle
+def save_video_from_agent(model, env, video_name="agent_win.gif", max_steps=100):
+    frames_folder = "frames"
+    os.makedirs(frames_folder, exist_ok=True)
+
+    model.eval()
+    state = env.reset()
+    done = False
+    step = 0
+
+    print("Запись видео с победой...")
+
+    with torch.no_grad():
+        while not done and step < max_steps:
+            visualize_and_save_frame(env, state, 0, step, frames_folder)
+
+            state_tensor = torch.zeros(1, env.observation_space)
+            state_tensor[0, state] = 1.0
+            logits, _ = model(state_tensor)
+            action = logits.argmax().item()
+            state, _, done = env.step(action)
+            step += 1
+
+    # Собираем кадры в GIF
+    images = []
+    for filename in sorted(os.listdir(frames_folder)):
+        if filename.endswith(".png"):
+            images.append(imageio.imread(os.path.join(frames_folder, filename)))
+
+    imageio.mimsave(video_name, images, duration=0.3)
+    print(f"Видео сохранено как '{video_name}'")
+
+    # Очистка папки с кадрами
+    for f in os.listdir(frames_folder):
+        os.remove(os.path.join(frames_folder, f))
+
+
+# ------------------ Запуск обучения ------------------
+if __name__ == "__main__":
+    train()
